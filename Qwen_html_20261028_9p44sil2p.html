@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Морская экспедиция: Материки и реки</title>
+<style>
+  :root {
+    --game-bg: #0a3d62;
+    --game-bg-2: #1e6091;
+    --game-card: #f4f1de;
+    --game-primary: #0b2545;
+    --game-accent: #ee9b00;
+    --game-accent-2: #e76f51;
+    --game-text: #0b2545;
+    --game-success: #2a9d8f;
+    --game-error: #c1121f;
+    --game-muted: #a8dadc;
+    --game-sand: #e9c46a;
+    --game-foam: #f1faee;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #0a3d62 0%, #1e6091 40%, #3a8fb7 80%, #a8dadc 100%);
+    min-height: 100vh;
+    color: var(--game-text);
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .waves {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    width: 100%;
+    height: 180px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .bubble {
+    position: fixed;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.7), rgba(255,255,255,0.1));
+    border: 1px solid rgba(255,255,255,0.4);
+    pointer-events: none;
+    animation: rise linear infinite;
+    z-index: 0;
+  }
+  @keyframes rise {
+    0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+    10% { opacity: 0.8; }
+    90% { opacity: 0.6; }
+    100% { transform: translateY(-100px) scale(1); opacity: 0; }
+  }
+
+  .app {
+    position: relative;
+    z-index: 2;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+  }
+
+  .top-bar {
+    background: linear-gradient(135deg, rgba(11,37,69,0.95), rgba(30,96,145,0.95));
+    border: 3px solid var(--game-sand);
+    border-radius: 20px;
+    padding: 12px 18px;
+    color: var(--game-foam);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.2);
+    margin-bottom: 16px;
+    position: relative;
+  }
+
+  .top-bar::before {
+    content: '⚓';
+    position: absolute;
+    left: -14px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 28px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));
+  }
+
+  .score-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: bold;
+    font-size: 18px;
+    color: var(--game-sand);
+  }
+  .score-display .coin {
+    width: 28px; height: 28px;
+    background: radial-gradient(circle at 30% 30%, var(--game-sand), #b07d00);
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border: 2px solid #8b5a00;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+
+  .progress-wrap {
+    flex: 1;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .progress-bar {
+    height: 14px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 2px solid var(--game-sand);
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--game-success), #52c4b8);
+    width: 0%;
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 10px rgba(82,196,184,0.6);
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .task-counter {
+    font-size: 13px;
+    color: var(--game-foam);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .screen {
+    display: none;
+    animation: fadeIn 0.5s ease;
+  }
+  .screen.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .start-screen {
+    text-align: center;
+    padding: 30px 20px;
+  }
+  .title {
+    font-size: clamp(28px, 5vw, 48px);
+    color: var(--game-sand);
+    text-shadow: 3px 3px 0 var(--game-primary), 0 0 20px rgba(233,196,106,0.5);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    font-size: clamp(16px, 2.5vw, 22px);
+    color: var(--game-foam);
+    margin-bottom: 25px;
+    font-style: italic;
+  }
+  .legend {
+    background: linear-gradient(135deg, rgba(244,241,222,0.95), rgba(241,250,238,0.95));
+    border: 4px solid var(--game-sand);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 600px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    position: relative;
+  }
+  .legend::before, .legend::after {
+    content: '🐚';
+    position: absolute;
+    font-size: 32px;
+    top: -16px;
+  }
+  .legend::before { left: 20px; transform: rotate(-20deg); }
+  .legend::after { right: 20px; transform: rotate(20deg); content: '⚓'; }
+  .legend p {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--game-primary);
+    margin: 8px 0;
+  }
+
+  .roni {
+    display: inline-block;
+    margin: 15px 0;
+    animation: bob 3s ease-in-out infinite;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateY(0) rotate(-2deg); }
+    50% { transform: translateY(-8px) rotate(2deg); }
+  }
+
+  .btn {
+    background: linear-gradient(180deg, var(--game-accent) 0%, #c97d00 100%);
+    color: var(--game-foam);
+    border: 3px solid var(--game-primary);
+    border-radius: 14px;
+    padding: 14px 32px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 5px 0 var(--game-primary), 0 8px 15px rgba(0,0,0,0.3);
+    transition: all 0.15s;
+    font-family: inherit;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .btn:hover { transform: translateY(2px); box-shadow: 0 3px 0 var(--game-primary), 0 5px 10px rgba(0,0,0,0.3); }
+  .btn:active { transform: translateY(5px); box-shadow: 0 0 0 var(--game-primary); }
+  .btn:disabled {
+    background: #8a9ba8;
+    border-color: #556670;
+    box-shadow: 0 5px 0 #556670;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .btn-secondary {
+    background: linear-gradient(180deg, var(--game-muted) 0%, #7fb8c4 100%);
+    color: var(--game-primary);
+  }
+
+  /* Карта этапов */
+  .stages-map {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    flex-wrap: wrap;
+    margin: 30px 0;
+  }
+  .stage-node {
+    width: 180px;
+    padding: 20px 15px;
+    background: linear-gradient(135deg, var(--game-card), #fff);
+    border: 3px solid var(--game-primary);
+    border-radius: 20px;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.3);
+    transition: all 0.3s;
+  }
+  .stage-node.locked {
+    background: linear-gradient(135deg, #6b7a85, #4a5660);
+    color: #2a333a;
+    opacity: 0.7;
+  }
+  .stage-node.current {
+    border-color: var(--game-accent);
+    box-shadow: 0 0 25px rgba(238,155,0,0.6), 0 6px 15px rgba(0,0,0,0.3);
+    transform: scale(1.05);
+  }
+  .stage-node.completed {
+    border-color: var(--game-success);
+    background: linear-gradient(135deg, #d4f1ea, #a8e6cf);
+  }
+  .stage-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+  .stage-name {
+    font-weight: bold;
+    font-size: 16px;
+    margin-bottom: 6px;
+  }
+  .stage-desc {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-bottom: 8px;
+  }
+  .stage-stars {
+    font-size: 20px;
+    letter-spacing: 3px;
+  }
+  .lock-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 17px;
+  }
+
+  .game-card {
+    background: linear-gradient(135deg, rgba(244,241,222,0.97), rgba(241,250,238,0.97));
+    border: 4px solid var(--game-sand);
+    border-radius: 24px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    position: relative;
+  }
+  .game-card::before {
+    content: '';
+    position: absolute;
+    top: -12px; left: 50%;
+    transform: translateX(-50%);
+    width: 60px; height: 24px;
+    background: var(--game-sand);
+    border: 3px solid var(--game-primary);
+    border-radius: 12px;
+  }
+
+  .question-text {
+    font-size: clamp(18px, 2.5vw, 22px);
+    color: var(--game-primary);
+    font-weight: bold;
+    line-height: 1.5;
+    padding: 15px 20px;
+    background: rgba(168,218,220,0.3);
+    border-left: 5px solid var(--game-accent);
+    border-radius: 10px;
+    margin-bottom: 15px;
+  }
+
+  .answers {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .answer-btn {
+    background: linear-gradient(135deg, #fff, #f4f1de);
+    border: 3px solid var(--game-primary);
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    font-family: inherit;
+    color: var(--game-text);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+  }
+  .answer-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--game-accent);
+    box-shadow: 0 5px 0 rgba(0,0,0,0.15), 0 8px 15px rgba(238,155,0,0.3);
+  }
+  .answer-btn.correct {
+    background: linear-gradient(135deg, #d4f1ea, #a8e6cf);
+    border-color: var(--game-success);
+    color: var(--game-primary);
+    box-shadow: 0 0 15px rgba(42,157,143,0.5);
+  }
+  .answer-btn.correct::after {
+    content: ' ✓';
+    font-weight: bold;
+    color: var(--game-success);
+  }
+  .answer-btn.wrong {
+    background: linear-gradient(135deg, #fadbd8, #f1948a);
+    border-color: var(--game-error);
+    animation: shake 0.5s;
+  }
+  .answer-btn.wrong::after {
+    content: ' ✗';
+    font-weight: bold;
+    color: var(--game-error);
+  }
+  .answer-btn:disabled { cursor: default; }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-8px); }
+    40%, 80% { transform: translateX(8px); }
+  }
+
+  .timer {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--game-primary);
+    color: var(--game-sand);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: bold;
+    font-size: 16px;
+    border: 2px solid var(--game-sand);
+  }
+  .timer.warning { background: var(--game-error); color: white; animation: pulse 0.8s infinite; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .feedback {
+    margin-top: 18px;
+    padding: 15px 20px;
+    border-radius: 14px;
+    display: none;
+    animation: slideDown 0.4s;
+    border: 3px solid;
+  }
+  .feedback.show { display: block; }
+  .feedback.correct {
+    background: linear-gradient(135deg, #d4f1ea, #a8e6cf);
+    border-color: var(--game-success);
+    color: var(--game-primary);
+  }
+  .feedback.wrong {
+    background: linear-gradient(135deg, #fadbd8, #f5b7b1);
+    border-color: var(--game-error);
+    color: var(--game-primary);
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .feedback-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-weight: bold;
+    font-size: 18px;
+  }
+  .feedback-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    font-weight: bold;
+  }
+  .feedback.correct .feedback-icon { background: var(--game-success); }
+  .feedback.wrong .feedback-icon { background: var(--game-error); }
+
+  .roni-speech {
+    background: white;
+    border: 2px solid var(--game-primary);
+    border-radius: 14px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .roni-speech::before {
+    content: '';
+    position: absolute;
+    left: -10px; top: 12px;
+    width: 0; height: 0;
+    border: 6px solid transparent;
+    border-right-color: var(--game-primary);
+  }
+  .roni-mini {
+    width: 44px; height: 44px;
+    flex-shrink: 0;
+  }
+
+  .final-screen {
+    text-align: center;
+    padding: 30px 20px;
+  }
+  .final-title {
+    font-size: clamp(28px, 5vw, 44px);
+    color: var(--game-sand);
+    text-shadow: 3px 3px 0 var(--game-primary);
+    margin-bottom: 20px;
+  }
+  .stars-display {
+    font-size: 56px;
+    margin: 20px 0;
+    letter-spacing: 10px;
+  }
+  .star { display: inline-block; transition: all 0.5s; }
+  .star.earned {
+    animation: starPop 0.6s;
+    filter: drop-shadow(0 0 10px rgba(233,196,106,0.8));
+  }
+  .star.empty { filter: grayscale(100%) opacity(0.4); }
+  @keyframes starPop {
+    0% { transform: scale(0) rotate(-180deg); }
+    60% { transform: scale(1.3) rotate(20deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+  .stat-card {
+    background: rgba(255,255,255,0.9);
+    border: 3px solid var(--game-sand);
+    border-radius: 14px;
+    padding: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  }
+  .stat-value {
+    font-size: 32px;
+    font-weight: bold;
+    color: var(--game-accent-2);
+  }
+  .stat-label {
+    font-size: 13px;
+    color: var(--game-primary);
+    margin-top: 4px;
+  }
+
+  .buttons-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+
+  .confetti {
+    position: fixed;
+    width: 10px; height: 10px;
+    pointer-events: none;
+    z-index: 100;
+    animation: confettiFall 1.5s linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(-20px) rotate(0); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+
+  .toast {
+    position: fixed;
+    top: 20px; left: 50%;
+    transform: translateX(-50%);
+    background: var(--game-primary);
+    color: var(--game-sand);
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--game-sand);
+    z-index: 200;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  .stage-complete {
+    text-align: center;
+    padding: 30px 20px;
+  }
+  .stage-badge {
+    width: 120px; height: 120px;
+    margin: 0 auto 20px;
+    background: radial-gradient(circle, var(--game-sand), var(--game-accent));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    border: 5px solid var(--game-primary);
+    box-shadow: 0 0 30px rgba(233,196,106,0.6);
+    animation: badgePulse 2s infinite;
+  }
+  @keyframes badgePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .mistakes-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin: 15px 0;
+    text-align: left;
+  }
+  .mistake-item {
+    background: rgba(255,255,255,0.8);
+    border-left: 5px solid var(--game-error);
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+  }
+  .mistake-item .q { font-weight: bold; margin-bottom: 5px; }
+  .mistake-item .a { font-size: 14px; color: var(--game-primary); }
+
+  @media (max-width: 600px) {
+    .top-bar::before { display: none; }
+    .game-card { padding: 18px 14px; }
+    .btn { padding: 12px 22px; font-size: 16px; }
+    .stage-node { width: 140px; padding: 14px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<svg class="waves" viewBox="0 0 1200 180" preserveAspectRatio="none">
+  <path d="M0,80 Q150,20 300,80 T600,80 T900,80 T1200,80 L1200,180 L0,180 Z" fill="rgba(255,255,255,0.15)">
+    <animate attributeName="d" dur="8s" repeatCount="indefinite"
+      values="M0,80 Q150,20 300,80 T600,80 T900,80 T1200,80 L1200,180 L0,180 Z;
+              M0,80 Q150,140 300,80 T600,80 T900,80 T1200,80 L1200,180 L0,180 Z;
+              M0,80 Q150,20 300,80 T600,80 T900,80 T1200,80 L1200,180 L0,180 Z"/>
+  </path>
+  <path d="M0,110 Q150,60 300,110 T600,110 T900,110 T1200,110 L1200,180 L0,180 Z" fill="rgba(255,255,255,0.25)">
+    <animate attributeName="d" dur="6s" repeatCount="indefinite"
+      values="M0,110 Q150,60 300,110 T600,110 T900,110 T1200,110 L1200,180 L0,180 Z;
+              M0,110 Q150,160 300,110 T600,110 T900,110 T1200,110 L1200,180 L0,180 Z;
+              M0,110 Q150,60 300,110 T600,110 T900,110 T1200,110 L1200,180 L0,180 Z"/>
+  </path>
+  <path d="M0,140 Q150,100 300,140 T600,140 T900,140 T1200,140 L1200,180 L0,180 Z" fill="rgba(168,218,220,0.5)"/>
+</svg>
+
+<div class="app">
+  <div class="top-bar" id="topBar" style="display:none;">
+    <div class="score-display">
+      <span class="coin">🪙</span>
+      <span id="scoreValue">0</span>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="task-counter">
+        <span>Выполнено: <b id="doneCount">0</b></span>
+        <span>Осталось: <b id="leftCount">0</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen active" id="startScreen">
+    <div class="start-screen">
+      <h1 class="title">🌊 Морская экспедиция 🌊</h1>
+      <p class="subtitle">Материки и реки • 6 класс</p>
+      <div class="roni" id="startRoni"></div>
+      <div class="legend">
+        <p><b>Юный мореплаватель, привет!</b></p>
+        <p>Тебя ждут два испытания: ты узнаешь всё о <b>материках</b> нашей планеты и совершишь путешествие по великим <b>рекам</b> мира.</p>
+        <p>Вместе с пёсом Рони поднимай якорь — и в путь! ⚓</p>
+      </div>
+      <button class="btn" onclick="startGame()">🚢 Начать плавание</button>
+    </div>
+  </div>
+
+  <div class="screen" id="stagesScreen">
+    <div class="start-screen">
+      <h2 class="title" style="font-size:clamp(22px,4vw,32px);">🗺️ Карта путешествия</h2>
+      <p class="subtitle">Два этапа, два открытия</p>
+      <div class="stages-map" id="stagesMap"></div>
+      <button class="btn" id="startStageBtn" onclick="startCurrentStage()">⛵ Отправиться в путь</button>
+    </div>
+  </div>
+
+  <div class="screen" id="quizScreen">
+    <div class="game-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <span style="background:var(--game-primary);color:var(--game-sand);padding:4px 12px;border-radius:12px;font-size:13px;font-weight:bold;" id="stageBadge">Этап 1</span>
+        <div class="timer" id="timer">⏱ <span id="timerValue">30</span></div>
+      </div>
+      <div class="question-text" id="questionText"></div>
+      <div class="answers" id="answersBlock"></div>
+      <div class="feedback" id="quizFeedback">
+        <div class="feedback-header">
+          <span class="feedback-icon" id="feedbackIcon">✓</span>
+          <span id="feedbackTitle">Отлично!</span>
+        </div>
+        <div id="feedbackText"></div>
+        <div class="roni-speech">
+          <div class="roni-mini" id="roniMini"></div>
+          <div id="roniText"></div>
+        </div>
+      </div>
+      <div style="text-align:center;margin-top:18px;">
+        <button class="btn" id="nextBtn" onclick="nextQuestion()" disabled>Дальше →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="stageCompleteScreen">
+    <div class="stage-complete">
+      <div class="stage-badge" id="stageBadgeIcon">⚓</div>
+      <h2 class="title" style="font-size:clamp(22px,4vw,32px);" id="stageTitle">Этап пройден!</h2>
+      <p class="subtitle" id="stageSubtitle"></p>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stageCorrect">0</div>
+          <div class="stat-label">Верных ответов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stageWrong">0</div>
+          <div class="stat-label">Ошибок</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stageScore">0</div>
+          <div class="stat-label">Баллов</div>
+        </div>
+      </div>
+      <div class="buttons-row">
+        <button class="btn" id="nextStageBtn" onclick="goToNextStage()">Следующий этап →</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="finalScreen">
+    <div class="final-screen">
+      <h1 class="final-title">🏆 Миссия выполнена! 🏆</h1>
+      <div class="roni" id="finalRoni"></div>
+      <div class="stars-display" id="finalStars"></div>
+      <p class="subtitle" id="finalMessage"></p>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="finalTotal">0</div>
+          <div class="stat-label">Всего баллов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="finalCorrect">0</div>
+          <div class="stat-label">Верных ответов</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="finalWrong">0</div>
+          <div class="stat-label">Ошибок</div>
+        </div>
+      </div>
+      <div class="buttons-row">
+        <button class="btn" onclick="restartGame()">🔄 Играть снова</button>
+        <button class="btn btn-secondary" onclick="showMistakes()">📋 Посмотреть ошибки</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="mistakesScreen">
+    <div class="game-card">
+      <h3 style="color:var(--game-primary);margin-bottom:15px;text-align:center;">📋 Работа над ошибками</h3>
+      <div class="mistakes-list" id="mistakesList"></div>
+      <div style="text-align:center;margin-top:15px;">
+        <button class="btn" onclick="hideMistakes()">← Назад</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============ ДАННЫЕ ============
+const stagesData = [
+  {
+    id: 'continents',
+    name: 'Материки',
+    icon: '🌍',
+    desc: '6 вопросов о материках',
+    questions: [
+      { q: 'Сколько материков на Земле?', a: ['6', '5', '7', '4'], correct: 0, explain: 'На Земле 6 материков: Евразия, Африка, Северная Америка, Южная Америка, Антарктида и Австралия.' },
+      { q: 'Какой материк самый большой по площади?', a: ['Евразия', 'Африка', 'Северная Америка', 'Антарктида'], correct: 0, explain: 'Евразия — самый большой материк, её площадь около 54 млн км². Здесь находятся две части света: Европа и Азия.' },
+      { q: 'На каком материке расположена пустыня Сахара?', a: ['Африка', 'Австралия', 'Евразия', 'Северная Америка'], correct: 0, explain: 'Сахара — самая большая жаркая пустыня мира — находится в Африке и занимает почти треть материка.' },
+      { q: 'Какой материк почти полностью покрыт ледником?', a: ['Антарктида', 'Евразия', 'Северная Америка', 'Австралия'], correct: 0, explain: 'Антарктида — самый холодный материк, 98% её поверхности покрыто мощным ледниковым щитом.' },
+      { q: 'Какой материк самый маленький?', a: ['Австралия', 'Антарктида', 'Европа', 'Южная Америка'], correct: 0, explain: 'Австралия — самый маленький материк, её площадь около 7,7 млн км². Это также единственная страна-материк.' },
+      { q: 'Горы Анды расположены на материке:', a: ['Южная Америка', 'Северная Америка', 'Евразия', 'Африка'], correct: 0, explain: 'Анды — самые длинные горы планеты (около 9000 км) — тянутся вдоль западного побережья Южной Америки.' },
+      { q: 'Какой материк пересекает экватор почти посередине?', a: ['Африка', 'Евразия', 'Антарктида', 'Австралия'], correct: 0, explain: 'Экватор делит Африку почти пополам, поэтому на материке так много жарких территорий и влажных лесов.' }
+    ]
+  },
+  {
+    id: 'rivers',
+    name: 'Реки',
+    icon: '🏞️',
+    desc: '7 вопросов о реках мира',
+    questions: [
+      { q: 'Какая река считается самой длинной в мире?', a: ['Нил', 'Амазонка', 'Янцзы', 'Миссисипи'], correct: 0, explain: 'Нил — самая длинная река мира (около 6670 км). Она течёт по Африке и впадает в Средиземное море.' },
+      { q: 'Какая река самая полноводная в мире?', a: ['Амазонка', 'Нил', 'Конго', 'Янцзы'], correct: 0, explain: 'Амазонка в Южной Америке — самая полноводная река планеты. Она несёт в океан больше воды, чем Нил, Янцзы и Миссисипи вместе взятые!' },
+      { q: 'На каком материке течёт река Амазонка?', a: ['Южная Америка', 'Африка', 'Евразия', 'Северная Америка'], correct: 0, explain: 'Амазонка протекает по территории нескольких стран Южной Америки, в основном по Бразилии.' },
+      { q: 'Какая самая длинная река России?', a: ['Лена', 'Волга', 'Обь', 'Енисей'], correct: 0, explain: 'Лена — самая длинная река России (4400 км). Она течёт в Сибири и впадает в море Лаптевых.' },
+      { q: 'В какое море впадает река Волга?', a: ['Каспийское', 'Чёрное', 'Азовское', 'Балтийское'], correct: 0, explain: 'Волга — самая длинная река Европы (3530 км). Она впадает в Каспийское море и считается главной рекой России.' },
+      { q: 'Какая река протекает через несколько столиц и является одной из главных в Европе?', a: ['Дунай', 'Рейн', 'Темза', 'Волга'], correct: 0, explain: 'Дунай протекает через 4 столицы (Вену, Братиславу, Будапешт, Белград) и является второй по длине рекой Европы.' },
+      { q: 'Самая длинная река Северной Америки:', a: ['Миссисипи', 'Колорадо', 'Юкон', 'Святого Лаврентия'], correct: 0, explain: 'Миссисипи с притоком Миссури — самая длинная речная система Северной Америки (около 6420 км).' }
+    ]
+  }
+];
+
+const roniPhrases = {
+  correct: ['Гав! Ты настоящий капитан! 🦴', 'Ура-ура! Верно! 🎉', 'Ты умница, плывём дальше! ⛵', 'Рони гордится тобой! 🐾'],
+  wrong: ['Ничего, попробуй ещё! 🐾', 'Почти! Давай вместе разберёмся 🦴', 'Не переживай, впереди новые открытия! ⚓', 'Ошибаются все — даже капитаны! 💙'],
+  final: ['Ты настоящий герой морей! 🌊', 'Рони машет хвостом от радости! 🐾', 'Плавание прошло отлично! ⚓', 'До новой встречи, капитан! 🚢']
+};
+
+// ============ СОСТОЯНИЕ ============
+let state = {
+  totalScore: 0,
+  totalCorrect: 0,
+  totalWrong: 0,
+  mistakes: [],
+  currentStage: 0,
+  currentQuestion: 0,
+  stageCorrect: 0,
+  stageResults: [null, null],
+  stageStars: [0, 0],
+  timerInterval: null,
+  timeLeft: 30,
+  answered: false,
+  levelCorrectCount: 0
+};
+
+// ============ ЗВУК ============
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  return audioCtx;
+}
+
+function playTone(freq, duration, type = 'sine', volume = 0.2) {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(volume, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+function playCorrectSound() {
+  playTone(523, 0.15, 'sine', 0.25);
+  setTimeout(() => playTone(659, 0.15, 'sine', 0.25), 100);
+  setTimeout(() => playTone(784, 0.25, 'sine', 0.25), 200);
+}
+
+function playWrongSound() {
+  playTone(300, 0.2, 'sawtooth', 0.15);
+  setTimeout(() => playTone(200, 0.3, 'sawtooth', 0.15), 150);
+}
+
+function playClickSound() {
+  playTone(800, 0.05, 'square', 0.1);
+}
+
+function playWinSound() {
+  [523, 659, 784, 1047].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.2, 'sine', 0.2), i * 120);
+  });
+}
+
+function speak(text, excludeEmoji = true) {
+  if (!('speechSynthesis' in window)) return;
+  let cleanText = text;
+  if (excludeEmoji) {
+    cleanText = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|⚓|🦴|🐾|🎉|⛵|🐕|🗺️|📖|🌊|🚢|💙/gu, '').trim();
+  }
+  if (!cleanText) return;
+  try {
+    const utter = new SpeechSynthesisUtterance(cleanText);
+    utter.lang = 'ru-RU';
+    utter.rate = 1.0;
+    utter.pitch = 1.3;
+    const voices = speechSynthesis.getVoices();
+    const ruVoice = voices.find(v => v.lang.startsWith('ru') && /female|женск|milena|alena|irina|katya/i.test(v.name));
+    if (ruVoice) utter.voice = ruVoice;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
+  } catch(e) {}
+}
+
+// ============ SVG РОНИ ============
+function roniSVG(size = 80) {
+  return `
+  <svg viewBox="0 0 120 120" width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="60" cy="80" rx="35" ry="25" fill="#c9a27a"/>
+    <circle cx="60" cy="45" r="30" fill="#d4af84"/>
+    <ellipse cx="38" cy="28" rx="8" ry="14" fill="#a67c52" transform="rotate(-20 38 28)"/>
+    <ellipse cx="82" cy="28" rx="8" ry="14" fill="#a67c52" transform="rotate(20 82 28)"/>
+    <path d="M 32 38 Q 60 28 88 38 L 88 44 Q 60 34 32 44 Z" fill="#c1121f"/>
+    <circle cx="60" cy="36" r="3" fill="#fff"/>
+    <ellipse cx="60" cy="55" rx="14" ry="10" fill="#f4e4c1"/>
+    <ellipse cx="60" cy="50" rx="4" ry="3" fill="#2a2a2a"/>
+    <circle cx="50" cy="42" r="3" fill="#2a2a2a"/>
+    <circle cx="70" cy="42" r="3" fill="#2a2a2a"/>
+    <circle cx="51" cy="41" r="1" fill="#fff"/>
+    <circle cx="71" cy="41" r="1" fill="#fff"/>
+    <path d="M 55 58 Q 60 62 65 58" stroke="#2a2a2a" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <text x="60" y="40" font-size="8" text-anchor="middle" fill="#fff">⚓</text>
+    <ellipse cx="42" cy="100" rx="8" ry="6" fill="#a67c52"/>
+    <ellipse cx="78" cy="100" rx="8" ry="6" fill="#a67c52"/>
+    <path d="M 92 78 Q 105 70 100 58" stroke="#c9a27a" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function renderRoni() {
+  document.getElementById('startRoni').innerHTML = roniSVG(120);
+  document.getElementById('finalRoni').innerHTML = roniSVG(140);
+  document.getElementById('roniMini').innerHTML = roniSVG(40);
+}
+
+// ============ УТИЛИТЫ ============
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getTotalTasks() {
+  return stagesData.reduce((sum, s) => sum + s.questions.length, 0);
+}
+
+function getDoneTasks() {
+  let done = 0;
+  for (let i = 0; i < stagesData.length; i++) {
+    if (state.stageResults[i] !== null) {
+      done += stagesData[i].questions.length;
+    } else if (i === state.currentStage) {
+      done += state.currentQuestion;
+    }
+  }
+  return done;
+}
+
+function updateTopBar() {
+  document.getElementById('scoreValue').textContent = state.totalScore;
+  const total = getTotalTasks();
+  const done = getDoneTasks();
+  const left = total - done;
+  document.getElementById('doneCount').textContent = done;
+  document.getElementById('leftCount').textContent = left;
+  const percent = total > 0 ? (done / total) * 100 : 0;
+  document.getElementById('progressFill').style.width = percent + '%';
+}
+
+function randomPhrase(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function confetti() {
+  const colors = ['#ee9b00', '#e76f51', '#2a9d8f', '#e9c46a', '#f4a261', '#264653'];
+  for (let i = 0; i < 40; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[Math.floor(Math.random() * colors.length)];
+    c.style.animationDuration = (1 + Math.random() * 1.5) + 's';
+    c.style.animationDelay = Math.random() * 0.3 + 's';
+    if (Math.random() > 0.5) c.style.borderRadius = '0';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 2500);
+  }
+}
+
+function addMistake(text, userAnswer, correctAnswer) {
+  state.mistakes.push({ text, userAnswer, correctAnswer });
+}
+
+// ============ СТАРТ ============
+function startGame() {
+  playClickSound();
+  state = {
+    totalScore: 0, totalCorrect: 0, totalWrong: 0, mistakes: [],
+    currentStage: 0, currentQuestion: 0, stageCorrect: 0,
+    stageResults: [null, null], stageStars: [0, 0],
+    timerInterval: null, timeLeft: 30, answered: false,
+    levelCorrectCount: 0
+  };
+  document.getElementById('topBar').style.display = 'flex';
+  updateTopBar();
+  renderStagesMap();
+  showScreen('stagesScreen');
+}
+
+function restartGame() {
+  playClickSound();
+  showScreen('startScreen');
+  document.getElementById('topBar').style.display = 'none';
+}
+
+// ============ КАРТА ЭТАПОВ ============
+function renderStagesMap() {
+  const map = document.getElementById('stagesMap');
+  map.innerHTML = '';
+  stagesData.forEach((stg, i) => {
+    const node = document.createElement('div');
+    node.className = 'stage-node';
+    const isLocked = i > 0 && state.stageResults[i-1] === null;
+    const isCurrent = i === state.currentStage && state.stageResults[i] === null;
+    const isCompleted = state.stageResults[i] !== null;
+    
+    if (isLocked) node.classList.add('locked');
+    if (isCurrent) node.classList.add('current');
+    if (isCompleted) node.classList.add('completed');
+    
+    let starsHtml = '';
+    if (isCompleted) {
+      for (let s = 0; s < 3; s++) {
+        starsHtml += s < state.stageStars[i] ? '⭐' : '☆';
+      }
+    } else {
+      starsHtml = '☆☆☆';
+    }
+    
+    node.innerHTML = `
+      <div class="stage-icon">${stg.icon}</div>
+      <div class="stage-name">${stg.name}</div>
+      <div class="stage-desc">${stg.desc}</div>
+      <div class="stage-stars">${starsHtml}</div>
+      ${isLocked ? '<div class="lock-overlay">🔒</div>' : ''}
+    `;
+    map.appendChild(node);
+  });
+  
+  const btn = document.getElementById('startStageBtn');
+  const allDone = state.stageResults.every(r => r !== null);
+  if (allDone) {
+    btn.textContent = '🏆 К финалу!';
+    btn.onclick = showFinalScreen;
+  } else {
+    btn.textContent = '⛵ Отправиться в путь';
+    btn.onclick = startCurrentStage;
+  }
+}
+
+function startCurrentStage() {
+  playClickSound();
+  let stageIdx = state.stageResults.findIndex(r => r === null);
+  if (stageIdx === -1) { showFinalScreen(); return; }
+  if (stageIdx > 0 && state.stageResults[stageIdx-1] === null) {
+    showToast('🔒 Сначала пройди предыдущий этап!');
+    return;
+  }
+  state.currentStage = stageIdx;
+  state.currentQuestion = 0;
+  state.stageCorrect = 0;
+  showScreen('quizScreen');
+  renderQuestion();
+}
+
+// ============ ВИКТОРИНА ============
+function renderQuestion() {
+  state.answered = false;
+  const stg = stagesData[state.currentStage];
+  const q = stg.questions[state.currentQuestion];
+  
+  document.getElementById('stageBadge').textContent = `Этап ${state.currentStage+1}: ${stg.name}`;
+  document.getElementById('questionText').textContent = q.q;
+  
+  const answersBlock = document.getElementById('answersBlock');
+  answersBlock.innerHTML = '';
+  q.a.forEach((ans, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'answer-btn';
+    btn.textContent = ans;
+    btn.onclick = () => selectAnswer(i);
+    answersBlock.appendChild(btn);
+  });
+  
+  document.getElementById('quizFeedback').classList.remove('show', 'correct', 'wrong');
+  document.getElementById('nextBtn').disabled = true;
+  
+  updateTopBar();
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(state.timerInterval);
+  state.timeLeft = 30;
+  const timerEl = document.getElementById('timer');
+  const timerVal = document.getElementById('timerValue');
+  timerEl.classList.remove('warning');
+  timerVal.textContent = state.timeLeft;
+  
+  state.timerInterval = setInterval(() => {
+    state.timeLeft--;
+    timerVal.textContent = state.timeLeft;
+    if (state.timeLeft <= 5) timerEl.classList.add('warning');
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timerInterval);
+      timeUp();
+    }
+  }, 1000);
+}
+
+function timeUp() {
+  if (state.answered) return;
+  state.answered = true;
+  const q = stagesData[state.currentStage].questions[state.currentQuestion];
+  const btns = document.querySelectorAll('#answersBlock .answer-btn');
+  btns.forEach((b, i) => {
+    b.disabled = true;
+    if (i === q.correct) b.classList.add('correct');
+  });
+  state.totalWrong++;
+  addMistake(q.q, '(время вышло)', q.a[q.correct]);
+  playWrongSound();
+  showFeedback(false, 'Время вышло! ' + q.explain, 'Не переживай, впереди новые открытия! ⚓');
+  speak('Время вышло! ' + q.explain);
+  document.getElementById('nextBtn').disabled = false;
+}
+
+function selectAnswer(idx) {
+  if (state.answered) return;
+  state.answered = true;
+  clearInterval(state.timerInterval);
+  playClickSound();
+  
+  const q = stagesData[state.currentStage].questions[state.currentQuestion];
+  const btns = document.querySelectorAll('#answersBlock .answer-btn');
+  btns.forEach(b => b.disabled = true);
+  
+  const isCorrect = idx === q.correct;
+  btns[idx].classList.add(isCorrect ? 'correct' : 'wrong');
+  if (!isCorrect) btns[q.correct].classList.add('correct');
+  
+  if (isCorrect) {
+    state.totalScore++;
+    state.totalCorrect++;
+    state.stageCorrect++;
+    playCorrectSound();
+    confetti();
+    showFeedback(true, q.explain, randomPhrase(roniPhrases.correct));
+    speak('Отлично! ' + q.explain);
+  } else {
+    state.totalWrong++;
+    addMistake(q.q, q.a[idx], q.a[q.correct]);
+    playWrongSound();
+    showFeedback(false, q.explain, randomPhrase(roniPhrases.wrong));
+    speak('Почти! ' + q.explain);
+  }
+  
+  document.getElementById('nextBtn').disabled = false;
+  updateTopBar();
+}
+
+function showFeedback(isCorrect, text, roniText) {
+  const fb = document.getElementById('quizFeedback');
+  fb.classList.remove('correct', 'wrong');
+  fb.classList.add('show', isCorrect ? 'correct' : 'wrong');
+  document.getElementById('feedbackIcon').textContent = isCorrect ? '✓' : '✗';
+  document.getElementById('feedbackTitle').textContent = isCorrect ? 'Отлично!' : 'Почти! Попробуй ещё раз.';
+  document.getElementById('feedbackText').textContent = text;
+  document.getElementById('roniText').textContent = roniText;
+}
+
+function nextQuestion() {
+  playClickSound();
+  state.currentQuestion++;
+  const stg = stagesData[state.currentStage];
+  
+  if (state.currentQuestion >= stg.questions.length) {
+    finishStage();
+    return;
+  }
+  renderQuestion();
+}
+
+function finishStage() {
+  const stg = stagesData[state.currentStage];
+  const total = stg.questions.length;
+  const correct = state.stageCorrect;
+  const percent = (correct / total) * 100;
+  
+  let stars = 0;
+  if (percent >= 100) stars = 3;
+  else if (percent >= 75) stars = 2;
+  else if (percent >= 50) stars = 1;
+  
+  state.stageResults[state.currentStage] = correct;
+  state.stageStars[state.currentStage] = stars;
+  
+  showStageComplete();
+}
+
+function showStageComplete() {
+  playWinSound();
+  confetti();
+  
+  const stg = stagesData[state.currentStage];
+  const correct = state.stageCorrect;
+  const total = stg.questions.length;
+  const wrong = total - correct;
+  
+  document.getElementById('stageBadgeIcon').textContent = stg.icon;
+  document.getElementById('stageTitle').textContent = `Этап "${stg.name}" пройден!`;
+  document.getElementById('stageSubtitle').textContent = state.currentStage === 0 
+    ? 'Ты отлично знаешь материки!' 
+    : 'Реки мира теперь тебе знакомы!';
+  document.getElementById('stageCorrect').textContent = correct;
+  document.getElementById('stageWrong').textContent = wrong;
+  document.getElementById('stageScore').textContent = correct;
+  
+  const nextBtn = document.getElementById('nextStageBtn');
+  if (state.currentStage < stagesData.length - 1) {
+    nextBtn.textContent = `Следующий этап: ${stagesData[state.currentStage+1].name} →`;
+    nextBtn.onclick = goToNextStage;
+  } else {
+    nextBtn.textContent = '🏆 К финалу!';
+    nextBtn.onclick = showFinalScreen;
+  }
+  
+  showScreen('stageCompleteScreen');
+}
+
+function goToNextStage() {
+  playClickSound();
+  state.currentStage++;
+  state.currentQuestion = 0;
+  state.stageCorrect = 0;
+  renderStagesMap();
+  showScreen('stagesScreen');
+}
+
+// ============ ФИНАЛ ============
+function showFinalScreen() {
+  playWinSound();
+  confetti();
+  setTimeout(confetti, 500);
+  
+  const total = getTotalTasks();
+  const percent = (state.totalCorrect / total) * 100;
+  let stars = 0;
+  if (percent >= 100) stars = 3;
+  else if (percent >= 75) stars = 2;
+  else if (percent >= 50) stars = 1;
+  
+  const starsEl = document.getElementById('finalStars');
+  starsEl.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const s = document.createElement('span');
+    s.className = 'star ' + (i < stars ? 'earned' : 'empty');
+    s.textContent = '⭐';
+    s.style.animationDelay = (i * 0.3) + 's';
+    starsEl.appendChild(s);
+  }
+  
+  document.getElementById('finalTotal').textContent = state.totalScore;
+  document.getElementById('finalCorrect').textContent = state.totalCorrect;
+  document.getElementById('finalWrong').textContent = state.totalWrong;
+  
+  let msg = '';
+  if (stars === 3) msg = 'Ты настоящий капитан географии! Рони в восторге! 🌊';
+  else if (stars === 2) msg = 'Отличное плавание! Ещё немного — и будет 3 звезды! ⚓';
+  else if (stars === 1) msg = 'Хорошее начало! Попробуй ещё раз для лучшего результата 🐾';
+  else msg = 'Не переживай! Каждая ошибка — это шаг к знаниям 💙';
+  
+  document.getElementById('finalMessage').textContent = msg;
+  speak(randomPhrase(roniPhrases.final));
+  
+  showScreen('finalScreen');
+}
+
+function showMistakes() {
+  playClickSound();
+  const list = document.getElementById('mistakesList');
+  if (state.mistakes.length === 0) {
+    list.innerHTML = '<p style="text-align:center;padding:20px;color:var(--game-success);font-weight:bold;">🏆 Ошибок нет! Ты молодец!</p>';
+  } else {
+    list.innerHTML = state.mistakes.map(m => `
+      <div class="mistake-item">
+        <div class="q">${m.text}</div>
+        <div class="a">Твой ответ: <b style="color:var(--game-error);">${m.userAnswer}</b> → Правильно: <b style="color:var(--game-success);">${m.correctAnswer}</b></div>
+      </div>
+    `).join('');
+  }
+  showScreen('mistakesScreen');
+}
+
+function hideMistakes() {
+  playClickSound();
+  showScreen('finalScreen');
+}
+
+// ============ ИНИЦИАЛИЗАЦИЯ ============
+window.addEventListener('DOMContentLoaded', () => {
+  renderRoni();
+  
+  for (let i = 0; i < 12; i++) {
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    const size = 10 + Math.random() * 30;
+    b.style.width = size + 'px';
+    b.style.height = size + 'px';
+    b.style.left = Math.random() * 100 + 'vw';
+    b.style.animationDuration = (8 + Math.random() * 10) + 's';
+    b.style.animationDelay = Math.random() * 10 + 's';
+    document.body.appendChild(b);
+  }
+  
+  const decor = [
+    { emoji: '🐚', top: '15%', left: '5%', size: 40 },
+    { emoji: '⚓', top: '25%', right: '5%', size: 50 },
+    { emoji: '🐠', top: '60%', left: '3%', size: 35 },
+    { emoji: '⭐', top: '70%', right: '4%', size: 30 },
+    { emoji: '🦀', top: '85%', left: '6%', size: 35 }
+  ];
+  decor.forEach(d => {
+    const el = document.createElement('div');
+    el.style.position = 'fixed';
+    el.style.fontSize = d.size + 'px';
+    el.style.opacity = '0.3';
+    el.style.pointerEvents = 'none';
+    el.style.zIndex = '0';
+    if (d.top) el.style.top = d.top;
+    if (d.left) el.style.left = d.left;
+    if (d.right) el.style.right = d.right;
+    el.textContent = d.emoji;
+    el.style.animation = 'bob 4s ease-in-out infinite';
+    document.body.appendChild(el);
+  });
+  
+  if ('speechSynthesis' in window) {
+    speechSynthesis.getVoices();
+    speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+  }
+});
+</script>
+</body>
+</html>
